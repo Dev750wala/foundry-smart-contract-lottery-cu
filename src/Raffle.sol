@@ -39,6 +39,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     error Raffle__TransferFailed();
     error Raffle__SendMoreToEnterRaffle();
     error Raffle__RaffleNotOpen();
+    error Raffle__EntranceFeeMustBeGreaterThanZero();
 
     /* Type declarations */
     enum RaffleState {
@@ -70,23 +71,23 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
     /* Functions */
     constructor(
         uint256 subscriptionId,
-        bytes32 gasLane, // keyHash
+        bytes32 gasLane,
         uint256 interval,
         uint256 entranceFee,
         uint32 callbackGasLimit,
         address vrfCoordinatorV2
     ) VRFConsumerBaseV2Plus(vrfCoordinatorV2) {
+        if (entranceFee == 0) {
+            revert Raffle__EntranceFeeMustBeGreaterThanZero();
+        }
+        
         i_gasLane = gasLane;
         i_interval = interval;
         i_subscriptionId = subscriptionId;
         i_entranceFee = entranceFee;
+        i_callbackGasLimit = callbackGasLimit;
         s_raffleState = RaffleState.OPEN;
         s_lastTimeStamp = block.timestamp;
-        i_callbackGasLimit = callbackGasLimit;
-        // uint256 balance = address(this).balance;
-        // if (balance > 0) {
-        //     payable(msg.sender).transfer(balance);
-        // }
     }
 
     function enterRaffle() public payable {
@@ -110,8 +111,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
      * the following should be true for this to return true:
      * 1. The time interval has passed between raffle runs.
      * 2. The lottery is open.
-     * 3. The contract has ETH.
-     * 4. Implicity, your subscription is funded with LINK.
+     * 3. Implicity, your subscription is funded with LINK.
      */
     function checkUpkeep(bytes memory /* checkData */ )
         public
@@ -122,8 +122,7 @@ contract Raffle is VRFConsumerBaseV2Plus, AutomationCompatibleInterface {
         bool isOpen = RaffleState.OPEN == s_raffleState;
         bool timePassed = ((block.timestamp - s_lastTimeStamp) > i_interval);
         bool hasPlayers = s_players.length > 0;
-        bool hasBalance = address(this).balance > 0;
-        upkeepNeeded = (timePassed && isOpen && hasBalance && hasPlayers);
+        upkeepNeeded = (timePassed && isOpen && hasPlayers);
         return (upkeepNeeded, "0x0"); // can we comment this out?
     }
 
